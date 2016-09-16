@@ -1,16 +1,18 @@
+'use strict';
 const http = require('https');
 const url = require('url');
-var exec = require('child_process').exec;
+const spawn = require('child_process').spawn;
 
 class SoundCloudPlayer {
   constructor(client_id) {
     this.client_id = client_id;
     this.endpoint = 'https://api.soundcloud.com';
+    this.player = undefined;
+
+    process.on('uncaughtException', err => this.handleError(err));
   }
 
   query(cmd, cb) {
-    console.log(`${this.endpoint}${cmd}?client_id=${this.client_id}`);
-
     return http.get(`${this.endpoint}${cmd}?client_id=${this.client_id}`, res => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
@@ -19,20 +21,25 @@ class SoundCloudPlayer {
   }
 
   play(track_id) {
-    sc.query(`/tracks/${track_id}`, res => {
-      const parsedUrl = url.parse(res.stream_url);
-      sc.query(parsedUrl.path, res => {
-        const cmd = `/usr/local/bin/play -t mp3 "${res.location}"`;
-        exec(cmd, (error, stdout, stderr) => {
-          if (error) {
-            console.error(`exec error: ${error}`);
-            return;
-          }
-          console.log(`stdout: ${stdout}`);
-          console.log(`stderr: ${stderr}`);
-        });
-      });
-    });
+    return sc.query(`/tracks/${track_id}`,
+      res => sc.query(url.parse(res.stream_url).path,
+        res => {
+          this.player = spawn('/usr/local/bin/play', ['-t', 'mp3', res.location]);
+        }
+      )
+    )
+  }
+
+  stop() {
+    if (this.player) {
+      this.player.kill();
+      this.player = undefined;
+    }
+  }
+
+  handleError(err) {
+    this.stop();
+    console.error(err);
   }
 }
 
