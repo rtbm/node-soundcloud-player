@@ -13,21 +13,23 @@ class SoundCloudPlayer {
   }
 
   query(cmd, cb) {
-    return http.get(`${this.endpoint}${cmd}?client_id=${this.client_id}`, res => {
-      let data = '';
-      res.on('data', chunk => { data += chunk; });
-      res.on('end', () => cb(JSON.parse(data)));
-    })
+    return http.get(`${this.endpoint}${cmd}?client_id=${this.client_id}`,
+      res => {
+        let data = '';
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => cb(JSON.parse(data)));
+      }
+    );
   }
 
   play(track_id) {
-    return sc.query(`/tracks/${track_id}`,
-      res => sc.query(url.parse(res.stream_url).path,
+    return this.query(`/tracks/${track_id}`,
+      res => this.query(url.parse(res.stream_url).path,
         res => {
           this.player = spawn('/usr/local/bin/play', ['-t', 'mp3', res.location]);
         }
       )
-    )
+    );
   }
 
   stop() {
